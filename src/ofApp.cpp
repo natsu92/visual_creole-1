@@ -1,6 +1,7 @@
 #include "ofApp.h"
 
 
+
 PXCSenseManager* senseManager = 0;
 PXCHandModule *handModule;
 PXCHandData *handData = 0;
@@ -23,10 +24,46 @@ uint32_t frameNum;
 uint32_t framePlayback;
 ofVec2f rightHandAt;
 ofVec2f leftHandAt;
+ofVec2f fingerAt;
+
+
+ofVec2f leftPointerThumbAt;//eŽw
+ofVec2f rightPointerThumbAt;
+
+ofVec2f leftPointerIndexAt;//l·‚µŽw
+ofVec2f rightPointerIndexAt;
+
+ofVec2f leftPointerMiddleAt;//’†Žw
+ofVec2f rightPointerMiddleAt;
+
+ofVec2f leftPointerRingAt;//–òŽw
+ofVec2f rightPointerRingAt;
+
+ofVec2f leftPointerPinkyAt;//¬Žw
+ofVec2f rightPointerPinkyAt;
+
 ofImage leftHandImage;
 ofImage rightHandImage;
+
+
 bool rightHandFound;
 bool leftHandFound;
+
+bool rightPointerThumbFound;//eŽw
+bool leftPointerThumbFound;
+
+bool rightPointerIndexFound;//l·‚µŽw
+bool leftPointerIndexFound;
+
+bool rightPointerMiddleFound;//’†Žw
+bool leftPointerMiddleFound;
+
+bool rightPointerRingFound;//–òŽw
+bool leftPointerRingFound;
+
+bool rightPointerPinkyFound;//¬Žw
+bool leftPointerPinkyFound;
+
 bool leftHandImageFrag;
 bool rightHandImageFrag;
 
@@ -47,9 +84,9 @@ const wchar_t* path_wchar_t;
 bool Pause;
 
 //--------------------------------------------------------------
-void ofApp::setup(){
+void ofApp::setup() {
 
-	ofBackground(180);
+	ofBackground(255);
 	ofSetWindowShape(1980, 1080);
 	ofSetFrameRate(FPS);
 
@@ -57,9 +94,55 @@ void ofApp::setup(){
 
 	camViewport.set(60, 60, 1280, 960);
 
+	//•`‚­Žd‘g‚Ý‚ðì‚é
+	ofEnableAlphaBlending();
+	ofSetDrawBitmapMode(OF_BITMAPMODE_MODEL_BILLBOARD);
+
+	//A‚ð‚¢‚ê‚é‚Æ“§‰ß‚·‚é
+	fbo.allocate(1280, 960,GL_RGBA);
+	drawing = false;
+	haconiwa = false;
+	object = false;
+
+	fbo1.allocate(60, 60, GL_RGB);
+
+	//--------------------------------
+
+	colorpicker0.setColorRadius(1.0);
+	colorpicker0.setColorAngle(0.5);
+
+	int x = 1380;
+	int y = 0;
+	int w = 150;
+	int h = 300;
+	int g = (int)((ofGetHeight() - h * 2) / 3);
+	y = g;
+
+	colorpicker0.setSize(x, y, w, h);
+
+	y = y + h + g;
+
+
+	meshGradient.setMode(OF_PRIMITIVE_TRIANGLE_FAN);
+	meshGradient.addVertex(ofVec3f(0, 0));
+	meshGradient.addVertex(ofVec3f(ofGetWidth(), 0));
+	meshGradient.addVertex(ofVec3f(ofGetWidth(), ofGetHeight()));
+	meshGradient.addVertex(ofVec3f(0, ofGetHeight()));
+
+	meshGradient.addColor(ofColor::white);
+	meshGradient.addColor(ofColor::white);
+	meshGradient.addColor(ofColor::white);
+	meshGradient.addColor(ofColor::white);
+
+
+
+	//--------------------------------
+
+
 	VC_State = ENTRY;
 	startMenuFlag = true;
 	initializeLive();
+
 
 }
 
@@ -69,7 +152,6 @@ void ofApp::initializeLive() {
 	senseManager->EnableStream(PXCCapture::STREAM_TYPE_DEPTH, DEPTH_WIDTH, DEPTH_HEIGHT, 0);
 
 	senseManager->EnableHand();
-
 	senseManager->Init();
 
 	handModule = senseManager->QueryHand();
@@ -82,7 +164,7 @@ void ofApp::initializeLive() {
 }
 
 void ofApp::initializeCapture() {
-	
+
 	senseManager = PXCSenseManager::CreateInstance();
 
 	senseManager->QueryCaptureManager()->SetFileName(path_wchar_t, true);
@@ -92,8 +174,8 @@ void ofApp::initializeCapture() {
 
 	senseManager->EnableHand();
 
-	senseManager->EnableStream(PXCCapture::StreamType::STREAM_TYPE_COLOR, COLOR_WIDTH,COLOR_HEIGHT, 30);
-	senseManager->EnableStream(PXCCapture::StreamType::STREAM_TYPE_DEPTH, DEPTH_WIDTH,DEPTH_HEIGHT, 30);
+	senseManager->EnableStream(PXCCapture::StreamType::STREAM_TYPE_COLOR, COLOR_WIDTH, COLOR_HEIGHT, 30);
+	senseManager->EnableStream(PXCCapture::StreamType::STREAM_TYPE_DEPTH, DEPTH_WIDTH, DEPTH_HEIGHT, 30);
 
 	senseManager->Init();
 
@@ -109,8 +191,8 @@ void ofApp::initializePlayer() {
 	// load your file at `path`
 
 
-	senseManager->EnableStream(PXCCapture::StreamType::STREAM_TYPE_COLOR, 640, 480,30);
-	senseManager->EnableStream(PXCCapture::StreamType::STREAM_TYPE_DEPTH, 640,480, 30);
+	senseManager->EnableStream(PXCCapture::StreamType::STREAM_TYPE_COLOR, 640, 480, 30);
+	senseManager->EnableStream(PXCCapture::StreamType::STREAM_TYPE_DEPTH, 640, 480, 30);
 
 	senseManager->EnableHand();
 
@@ -132,7 +214,12 @@ void ofApp::initializePlayer() {
 
 
 //--------------------------------------------------------------
-void ofApp::update(){
+void ofApp::update() {
+
+	//colorUI
+	colorpicker0.update();
+	
+
 
 	ofSetWindowTitle("Visual Creole   Framerate at " + ofToString(ofGetFrameRate(), 2));
 
@@ -148,14 +235,41 @@ void ofApp::update(){
 		senseManager->FlushFrame();
 		if (!Pause) framePlayback++;
 		updateCamera();
-		
+
 		break;
 	}
+
+
+
+	
+	//drawing
+	fbo.begin();
+
+	ofColor colorTop = colorpicker0.getColor();
+	meshGradient.setColor(0, colorTop);
+	meshGradient.setColor(1, colorTop);
+
+	if (drawing)
+	{
+		ofSetColor(colorTop);
+		ofDrawCircle(mouseLoc.x, mouseLoc.y, 5);
+		ofDrawLine(lastmouseLoc.x, lastmouseLoc.y, mouseLoc.x, mouseLoc.y);
+	}
+
+	fbo.end();
+
+
+	ofPixels pix;
+	fbo.readToPixels(pix);
+	image.setFromPixels(pix);
+
+
+
 
 }
 
 void ofApp::updateCamera() { //Live‚É•K—v‚È‚à‚Ì‚Ì‚ÝB‘¼‚É•K—v‚È‚à‚Ì‚Í‚Ù‚©‚Å‚â‚ë‚¤
-							// This function blocks until a color sample is ready
+							 // This function blocks until a color sample is ready
 	if (senseManager->AcquireFrame(true) == PXC_STATUS_NO_ERROR) {
 		// Retrieve the sample
 		PXCCapture::Sample *sample;
@@ -175,35 +289,109 @@ void ofApp::updateCamera() { //Live‚É•K—v‚È‚à‚Ì‚Ì‚ÝB‘¼‚É•K—v‚È‚à‚Ì‚Í‚Ù‚©‚Å‚â‚ë‚
 			handData->Update();
 			pxcUID handId;
 			PXCHandData::IHand* hand;
+			PXCHandData::JointData jointData;
+
 			//left hand at first
 			if (handData->QueryHandId(PXCHandData::ACCESS_ORDER_LEFT_HANDS, 0, handId) == PXC_STATUS_NO_ERROR) {
 				handData->QueryHandDataById(handId, hand);
 				auto center_l = hand->QueryMassCenterImage();
 				leftHandAt.set(center_l.x, center_l.y);
 				leftHandFound = true;
+
+				hand->QueryTrackedJoint((PXCHandData::JointType)5, jointData);
+				leftPointerThumbAt.set(jointData.positionImage.x, jointData.positionImage.y);
+				leftPointerThumbFound = true;
+
+				hand->QueryTrackedJoint((PXCHandData::JointType)9, jointData);
+				leftPointerIndexAt.set(jointData.positionImage.x, jointData.positionImage.y);
+				leftPointerIndexFound = true;
+
+				hand->QueryTrackedJoint((PXCHandData::JointType)13, jointData);
+				leftPointerMiddleAt.set(jointData.positionImage.x, jointData.positionImage.y);
+				leftPointerMiddleFound = true;
+
+				hand->QueryTrackedJoint((PXCHandData::JointType)17, jointData);
+				leftPointerRingAt.set(jointData.positionImage.x, jointData.positionImage.y);
+				leftPointerRingFound = true;
+
+				hand->QueryTrackedJoint((PXCHandData::JointType)21, jointData);
+				leftPointerPinkyAt.set(jointData.positionImage.x, jointData.positionImage.y);
+				leftPointerPinkyFound = true;
 			}
-			else { leftHandFound = false; }
+			else {
+				leftHandFound = false;
+				leftPointerThumbFound = false;
+				leftPointerIndexFound = false;
+				leftPointerMiddleFound = false;
+				leftPointerRingFound = false;
+				leftPointerPinkyFound = false;
+			}
 
 			if (handData->QueryHandId(PXCHandData::ACCESS_ORDER_RIGHT_HANDS, 0, handId) == PXC_STATUS_NO_ERROR) {
 				handData->QueryHandDataById(handId, hand);
 				auto center_r = hand->QueryMassCenterImage();
 				rightHandAt.set(center_r.x, center_r.y);
 				rightHandFound = true;
+
+				hand->QueryTrackedJoint((PXCHandData::JointType)9, jointData);
+				rightPointerIndexAt.set(jointData.positionImage.x, jointData.positionImage.y);
+				rightPointerIndexFound = true;
+
+				hand->QueryTrackedJoint((PXCHandData::JointType)5, jointData);
+				rightPointerThumbAt.set(jointData.positionImage.x, jointData.positionImage.y);
+				rightPointerThumbFound = true;
+
+				hand->QueryTrackedJoint((PXCHandData::JointType)13, jointData);
+				rightPointerMiddleAt.set(jointData.positionImage.x, jointData.positionImage.y);
+				rightPointerMiddleFound = true;
+
+				hand->QueryTrackedJoint((PXCHandData::JointType)17, jointData);
+				rightPointerRingAt.set(jointData.positionImage.x, jointData.positionImage.y);
+				rightPointerRingFound = true;
+
+				hand->QueryTrackedJoint((PXCHandData::JointType)21, jointData);
+				rightPointerPinkyAt.set(jointData.positionImage.x, jointData.positionImage.y);
+				rightPointerPinkyFound = true;
+
 			}
-			else { rightHandFound = false; }
+			else {
+				rightHandFound = false;
+				rightPointerIndexFound = false;
+				rightPointerThumbFound = false;
+				rightPointerMiddleFound = false;
+				rightPointerRingFound = false;
+				rightPointerPinkyFound = false;
+			}
+
+
+
 
 		}
 		senseManager->ReleaseFrame();
 	}
 	else { printf("Aquireframe error\n"); }
 	texture.loadData(imagePixels.getPixels(), 640, 480, GL_BGRA);
+
+
+
+
 }
 
 //--------------------------------------------------------------
-void ofApp::draw(){
+void ofApp::draw() {
+
+
 	gui.begin();
 	texture.draw(camViewport);
-	
+
+
+	fbo.draw(0, 0);
+	colorpicker0.draw();
+	ofDrawBitmapString(ofToString((int)ofGetFrameRate()), 10, 20);
+
+
+
+
 
 	switch (VC_State) {
 
@@ -270,8 +458,8 @@ void ofApp::draw(){
 		ImGui::SetNextWindowSize(ofVec2f(500, 200), ImGuiSetCond_FirstUseEver);
 		ImGui::SetNextWindowPos(ofVec2f(1400, 400), ImGuiSetCond_FirstUseEver);
 		ImGui::Begin("Record Manager", &startMenuFlag);
-		
-		if(Pause==false) frameNum++;
+
+		if (Pause == false) frameNum++;
 
 		//todo V‹KƒvƒƒWƒFƒNƒg¶¬Žž‚Æƒ[ƒhŽž‚ÅAƒtƒHƒ‹ƒ_–¼‚ðŽw’è‚·‚é‚Ì‚Æƒtƒ@ƒCƒ‹‚ðŽw’è‚·‚é‚Ì‚Åˆµ‚¢‚ªˆÙ‚È‚Á‚Ä‚µ‚Ü‚¤B
 		if (ImGui::Button("Start Recording"))
@@ -327,84 +515,230 @@ void ofApp::draw(){
 
 		ImGui::End();
 		if (leftHandFound && leftHandImageFrag) {
-			leftHandImage.draw(leftHandAt.x*2 + 40 - leftHandImage.getWidth() / 2, leftHandAt.y*2 + 60 - leftHandImage.getHeight() / 2);
+			leftHandImage.draw(leftHandAt.x * 2 + 40 - leftHandImage.getWidth() / 2, leftHandAt.y * 2 + 60 - leftHandImage.getHeight() / 2);
 		}
 		if (rightHandFound && rightHandImageFrag) {
-			rightHandImage.draw(rightHandAt.x*2 + 60 - rightHandImage.getWidth() / 2, rightHandAt.y*2 + 60 - rightHandImage.getHeight() / 2);
+			rightHandImage.draw(rightHandAt.x * 2 + 60 - rightHandImage.getWidth() / 2, rightHandAt.y * 2 + 60 - rightHandImage.getHeight() / 2);
 
 		}
 		break;
 
-	}
-	gui.end();
+		}
+
+		gui.end();
+
+	
 }
 
+
 void ofApp::drawPoints() {
+
+
+
+
 	ofPushStyle();
 	if (leftHandFound) {
-		ofSetColor(255, 0, 0);
+		ofSetColor(255, 0, 0);leftHandAt.x * 2 + camViewport.x + capCalibrateX, 
 		ofFill();
 		ofRect(leftHandAt.x * 2 + camViewport.x + capCalibrateX, leftHandAt.y * 2 + camViewport.y, 30, 30);
+		
+
+		//drawing
+		fbo1.begin();
+
+		ofColor colorTop = colorpicker0.getColor();
+		meshGradient.setColor(0, colorTop);
+		meshGradient.setColor(1, colorTop);
+
+		if (drawing)
+		{
+			ofSetColor(colorTop);
+			ofDrawCircle(mouseLoc.x, mouseLoc.y, 5);
+			ofDrawLine(lastmouseLoc.x, lastmouseLoc.y, mouseLoc.x, mouseLoc.y);
+		}
+
+		fbo1.end();
+
+
+
+		ofPixels pix;
+		fbo1.readToPixels(pix);
+		image.setFromPixels(pix);
+
+		fbo1.draw(0, 0);
+
+
+
+
+
+
 	}
 	if (rightHandFound) {
 		ofSetColor(0, 0, 255);
 		ofFill();
 		ofRect(rightHandAt.x * 2 + camViewport.x + capCalibrateX, rightHandAt.y * 2 + camViewport.y, 30, 30);
+
 	}
+
+	if (leftPointerThumbFound) {
+		ofSetColor(0, 255, 255);
+		ofFill();
+		ofRect(leftPointerThumbAt.x * 2 + camViewport.x + capCalibrateX, leftPointerThumbAt.y * 2 + camViewport.y, 10, 10);
+
+	}
+
+	if (rightPointerThumbFound) {
+		ofSetColor(0, 255, 255);
+		ofFill();
+		ofRect(rightPointerThumbAt.x * 2 + camViewport.x + capCalibrateX, rightPointerThumbAt.y * 2 + camViewport.y, 10, 10);
+
+	}
+
+	if (leftPointerIndexFound) {
+		ofSetColor(0, 255, 255);
+		ofFill();
+		ofRect(leftPointerIndexAt.x * 2 + camViewport.x + capCalibrateX, leftPointerIndexAt.y * 2 + camViewport.y, 10, 10);
+
+	}
+
+	if (rightPointerIndexFound) {
+		ofSetColor(0, 255, 255);
+		ofFill();
+		ofRect(rightPointerIndexAt.x * 2 + camViewport.x + capCalibrateX, rightPointerIndexAt.y * 2 + camViewport.y, 10, 10);
+
+	}
+
+	if (leftPointerIndexFound && rightPointerIndexFound) {
+		ofSetColor(255, 255, 0);
+		ofDrawLine(leftPointerIndexAt.x * 2 + camViewport.x + capCalibrateX, leftPointerIndexAt.y * 2 + camViewport.y, rightPointerIndexAt.x * 2 + camViewport.x + capCalibrateX, rightPointerIndexAt.y * 2 + camViewport.y);
+
+	}
+
+	if (leftPointerMiddleFound) {
+		ofSetColor(0, 255, 255);
+		ofFill();
+		ofRect(leftPointerMiddleAt.x * 2 + camViewport.x + capCalibrateX, leftPointerMiddleAt.y * 2 + camViewport.y, 10, 10);
+
+	}
+
+	if (rightPointerMiddleFound) {
+		ofSetColor(0, 255, 255);
+		ofFill();
+		ofRect(rightPointerMiddleAt.x * 2 + camViewport.x + capCalibrateX, rightPointerMiddleAt.y * 2 + camViewport.y, 10, 10);
+
+	}
+
+	if (leftPointerRingFound) {
+		ofSetColor(0, 255, 255);
+		ofFill();
+		ofRect(leftPointerRingAt.x * 2 + camViewport.x + capCalibrateX, leftPointerRingAt.y * 2 + camViewport.y, 10, 10);
+
+	}
+
+	if (rightPointerRingFound) {
+		ofSetColor(0, 255, 255);
+		ofFill();
+		ofRect(rightPointerRingAt.x * 2 + camViewport.x + capCalibrateX, rightPointerRingAt.y * 2 + camViewport.y, 10, 10);
+
+	}
+
+	if (leftPointerPinkyFound) {
+		ofSetColor(0, 255, 255);
+		ofFill();
+		ofRect(leftPointerPinkyAt.x * 2 + camViewport.x + capCalibrateX, leftPointerPinkyAt.y * 2 + camViewport.y, 10, 10);
+
+	}
+
+	if (rightPointerPinkyFound) {
+		ofSetColor(0, 255, 255);
+		ofFill();
+		ofRect(rightPointerPinkyAt.x * 2 + camViewport.x + capCalibrateX, rightPointerPinkyAt.y * 2 + camViewport.y, 10, 10);
+
+	}
+
 	ofPopStyle();
 }
 //--------------------------------------------------------------
-void ofApp::keyPressed(int key){
+void ofApp::keyPressed(int key) {
 	Pause = !Pause;
 	//senseManager->QueryCaptureManager()->SetPause(Pause);
+
+	if (key == 's') {
+		image.save("my file_" + ofGetTimestampString() + ".png", OF_IMAGE_QUALITY_BEST);
+	}
+
+
+	switch (key) {
+	case 'f':
+		ofToggleFullscreen();
+		break;
+	case 'c':
+
+
+		
+		break;
+
+	}
 }
 
 //--------------------------------------------------------------
-void ofApp::keyReleased(int key){
-
-}
-
-//--------------------------------------------------------------
-void ofApp::mouseMoved(int x, int y ){
-
-}
-
-//--------------------------------------------------------------
-void ofApp::mouseDragged(int x, int y, int button){
-
-}
-
-//--------------------------------------------------------------
-void ofApp::mousePressed(int x, int y, int button){
-
-}
-
-//--------------------------------------------------------------
-void ofApp::mouseReleased(int x, int y, int button){
-
-}
-
-//--------------------------------------------------------------
-void ofApp::mouseEntered(int x, int y){
+void ofApp::keyReleased(int key) {
 
 }
 
 //--------------------------------------------------------------
-void ofApp::mouseExited(int x, int y){
+void ofApp::mouseMoved(int x, int y) {
+	
+	drawing = false;
+	mouseLoc.x = x;
+	mouseLoc.y = y;
+	
+
+
 
 }
 
 //--------------------------------------------------------------
-void ofApp::windowResized(int w, int h){
+void ofApp::mouseDragged(int x, int y, int button) {
+	drawing = true;
+
+	lastmouseLoc = mouseLoc;
+	mouseLoc.set(x, y);
+
+	}
+
+//--------------------------------------------------------------
+void ofApp::mousePressed(int x, int y, int button) {
+	drawing = false;
 
 }
 
 //--------------------------------------------------------------
-void ofApp::gotMessage(ofMessage msg){
+void ofApp::mouseReleased(int x, int y, int button) {
 
 }
 
 //--------------------------------------------------------------
-void ofApp::dragEvent(ofDragInfo dragInfo){ 
+void ofApp::mouseEntered(int x, int y) {
+
+}
+
+//--------------------------------------------------------------
+void ofApp::mouseExited(int x, int y) {
+
+}
+
+//--------------------------------------------------------------
+void ofApp::windowResized(int w, int h) {
+
+}
+
+//--------------------------------------------------------------
+void ofApp::gotMessage(ofMessage msg) {
+
+}
+
+//--------------------------------------------------------------
+void ofApp::dragEvent(ofDragInfo dragInfo) {
 
 }
