@@ -24,10 +24,22 @@ int running;
 
 uint32_t frameNum;
 uint32_t framePlayback;
-ofVec2f rightHandAt;
-ofVec2f leftHandAt;
-ofVec2f leftPointerAt;
-ofVec2f rightPointerAt;
+ofVec3f rightHandAt;
+ofVec3f leftHandAt;
+ofVec3f leftPointerAt;
+ofVec3f rightPointerAt;
+
+ofVec3f leftPointerThumbAt;//eŽw
+ofVec3f rightPointerThumbAt;
+ofVec3f leftPointerIndexAt;//l·‚µŽw
+ofVec3f rightPointerIndexAt;
+ofVec3f leftPointerMiddleAt;//’†Žw
+ofVec3f rightPointerMiddleAt;
+ofVec3f leftPointerRingAt;//–òŽw
+ofVec3f rightPointerRingAt;
+ofVec3f leftPointerPinkyAt;//¬Žw
+ofVec3f rightPointerPinkyAt;
+
 ofImage leftHandImage, rightHandImage, backImage, headImage;
 ofImage leftHandImage_ld, rightHandImage_ld, backImage_ld, headImage_ld;
 bool rightHandFound, leftHandFound;
@@ -35,7 +47,13 @@ bool leftHandImageflag, rightHandImageflag, backImageflag, headImageflag;
 bool leftPointerFound;
 bool rightPointerFound;
 
-ofVec2f leftEyeAt, rightEyeAt, mouseAt;
+bool rightPointerThumbFound, leftPointerThumbFound;//eŽw 
+bool rightPointerIndexFound, leftPointerIndexFound;//l·‚µŽw
+bool rightPointerMiddleFound, leftPointerMiddleFound;//’†Žw
+bool rightPointerRingFound, leftPointerRingFound;//–òŽw
+bool rightPointerPinkyFound, leftPointerPinkyFound;//¬Žw
+
+ofVec3f leftEyeAt, rightEyeAt, mouseAt;
 bool faceFound;
 
 int isrightAssign2Tip;
@@ -43,6 +61,7 @@ int isleftAssign2Tip;
 int flocation = 0;
 
 bool isColorPointsEnable;
+bool isDrawEnable;
 
 int rightHandImageSize;
 int leftHandImageSize;
@@ -89,19 +108,16 @@ void ofApp::setup() {
 	ofEnableAlphaBlending();
 	ofSetDrawBitmapMode(OF_BITMAPMODE_MODEL_BILLBOARD);
 
-
 	fbo_back.allocate(1280, 960, GL_RGBA);
 	drawing_back = false;
 
-	fbo_right.allocate(1280, 960, GL_RGBA);
+	fbo_right.allocate(400, 600, GL_RGBA);
 	drawing_right = false;
 
-
-	fbo_left.allocate(1280, 960, GL_RGBA);
+	fbo_left.allocate(400, 600, GL_RGBA);
 	drawing_left = false;
 
-
-	fbo_face.allocate(1280, 960, GL_RGBA);//ƒTƒCƒY‚ÆF
+	fbo_face.allocate(700, 700, GL_RGBA);//ƒTƒCƒY‚ÆF
 	drawing_face = false;
 
 	//------------------------------------------------
@@ -158,7 +174,6 @@ void ofApp::setup() {
 	leftHandImageSize = 100;
 	backImageSize = 100;
 	headImageSize = 100;
-
 }
 
 void ofApp::initializeLive() {
@@ -362,8 +377,8 @@ void ofApp::update() {
 	if (drawing_back)
 	{
 		ofSetColor(colorTop);
-		ofDrawCircle(mouseLoc_back.x, mouseLoc_back.y, 5);
-		ofSetLineWidth(6);
+		ofDrawCircle(mouseLoc_back.x, mouseLoc_back.y, 3.5);
+		ofSetLineWidth(5);
 		ofDrawLine(lastmouseLoc_back.x, lastmouseLoc_back.y, mouseLoc_back.x, mouseLoc_back.y);
 	}
 	fbo_back.end();
@@ -372,6 +387,8 @@ void ofApp::update() {
 	fbo_back.readToPixels(pix_back);
 	image_back.setFromPixels(pix_back);
 
+
+
 	fbo_left.begin();
 	ofColor color_left = colorpicker0.getColor();
 	meshGradient.setColor(0, color_left);
@@ -379,8 +396,8 @@ void ofApp::update() {
 	if (drawing_left)
 	{
 		ofSetColor(color_left);
-		ofDrawCircle(mouseLoc_left.x, mouseLoc_left.y, 2);
-		ofSetLineWidth(2);
+		ofDrawCircle(mouseLoc_left.x, mouseLoc_left.y, 3.5);
+		ofSetLineWidth(5);
 		ofDrawLine(lastmouseLoc_left.x, lastmouseLoc_left.y, mouseLoc_left.x, mouseLoc_left.y);
 	}
 	fbo_left.end();
@@ -396,7 +413,7 @@ void ofApp::update() {
 	if (drawing_right)
 	{
 		ofSetColor(color_right);
-		ofDrawCircle(mouseLoc_right.x, mouseLoc_right.y, 5);
+		ofDrawCircle(mouseLoc_right.x, mouseLoc_right.y, 3.5);
 		ofSetLineWidth(5);
 		ofDrawLine(lastmouseLoc_right.x, lastmouseLoc_right.y, mouseLoc_right.x, mouseLoc_right.y);
 	}
@@ -412,7 +429,7 @@ void ofApp::update() {
 	if (drawing_face)
 	{
 		ofSetColor(color_face);
-		ofDrawCircle(mouseLoc_face.x, mouseLoc_face.y, 5);
+		ofDrawCircle(mouseLoc_face.x, mouseLoc_face.y, 3.5);
 		//ü••Ï‚¦‚½‚¢EEEEGUIì‚é
 		ofSetLineWidth(5);
 		ofDrawLine(lastmouseLoc_face.x, lastmouseLoc_face.y, mouseLoc_face.x, mouseLoc_face.y);
@@ -421,6 +438,7 @@ void ofApp::update() {
 	ofPixels pix_face;
 	fbo_face.readToPixels(pix_face);
 	image_face.setFromPixels(pix_face);
+
 }
 
 void ofApp::updateCamera() { //Live‚É•K—v‚È‚à‚Ì‚Ì‚ÝB‘¼‚É•K—v‚È‚à‚Ì‚Í‚Ù‚©‚Å‚â‚ë‚¤
@@ -458,27 +476,72 @@ void ofApp::updateCamera() { //Live‚É•K—v‚È‚à‚Ì‚Ì‚ÝB‘¼‚É•K—v‚È‚à‚Ì‚Í‚Ù‚©‚Å‚â‚ë‚
 			projection->MapDepthToColor(1, &depthPoint, &colorPoint);
 			leftHandAt.set(colorPoint.x, colorPoint.y);
 
+			hand->QueryTrackedJoint((PXCHandData::JointType)5, jointData);
+			colorPoint = { 0 };
+			depthPoint = jointData.positionImage;
+			depthPoint.z = jointData.positionWorld.z * 1000;
+			projection->MapDepthToColor(1, &depthPoint, &colorPoint);
+			leftPointerThumbAt.set(colorPoint.x, colorPoint.y);
+
 			hand->QueryTrackedJoint((PXCHandData::JointType)9, jointData);
 			colorPoint = { 0 };
 			depthPoint = jointData.positionImage;
 			depthPoint.z = jointData.positionWorld.z * 1000;
 			projection->MapDepthToColor(1, &depthPoint, &colorPoint);
-			leftPointerAt.set(colorPoint.x, colorPoint.y);
+			leftPointerIndexAt.set(colorPoint.x, colorPoint.y);
 
-			if (leftHandAt.x != -1.0f && leftHandAt.y != -1.0f && leftPointerAt.x != -1.0f && leftPointerAt.y != -1.0f) {
+			hand->QueryTrackedJoint((PXCHandData::JointType)13, jointData);
+			colorPoint = { 0 };
+			depthPoint = jointData.positionImage;
+			depthPoint.z = jointData.positionWorld.z * 1000;
+			projection->MapDepthToColor(1, &depthPoint, &colorPoint);
+			leftPointerMiddleAt.set(colorPoint.x, colorPoint.y);
+
+			hand->QueryTrackedJoint((PXCHandData::JointType)17, jointData);
+			colorPoint = { 0 };
+			depthPoint = jointData.positionImage;
+			depthPoint.z = jointData.positionWorld.z * 1000;
+			projection->MapDepthToColor(1, &depthPoint, &colorPoint);
+			leftPointerRingAt.set(colorPoint.x, colorPoint.y);
+
+			hand->QueryTrackedJoint((PXCHandData::JointType)21, jointData);
+			colorPoint = { 0 };
+			depthPoint = jointData.positionImage;
+			depthPoint.z = jointData.positionWorld.z * 1000;
+			projection->MapDepthToColor(1, &depthPoint, &colorPoint);
+			leftPointerPinkyAt.set(colorPoint.x, colorPoint.y);
+
+
+			if (leftHandAt.x != -1.0f && leftHandAt.y != -1.0f && leftPointerThumbAt.x != -1.0f && leftPointerThumbAt.y != -1.0f && leftPointerIndexAt.x != -1.0f && leftPointerIndexAt.y != -1.0f && leftPointerMiddleAt.x != -1.0f && leftPointerMiddleAt.y != -1.0f && leftPointerRingAt.x != -1.0f && leftPointerRingAt.y != -1.0f && leftPointerPinkyAt.x != -1.0f && leftPointerPinkyAt.y != -1.0f) {
 				leftHandFound = true;
 				leftPointerFound = true;
+				leftPointerThumbFound = true;
+				leftPointerIndexFound = true;
+				leftPointerMiddleFound = true;
+				leftPointerRingFound = true;
+				leftPointerPinkyFound = true;
+
 				printf("left, %f\n", leftHandAt.x);
 			}
 			else
 			{
 				leftHandFound = false;
 				leftPointerFound = false;
+				leftPointerThumbFound = false;
+				leftPointerIndexFound = false;
+				leftPointerMiddleFound = false;
+				leftPointerRingFound = false;
+				leftPointerPinkyFound = false;
 			}
 		}
 		else {
 			leftHandFound = false;
 			leftPointerFound = false;
+			leftPointerThumbFound = false;
+			leftPointerIndexFound = false;
+			leftPointerMiddleFound = false;
+			leftPointerRingFound = true;
+			leftPointerPinkyFound = true;
 		}
 
 		if (handData->QueryHandId(PXCHandData::ACCESS_ORDER_RIGHT_HANDS, 0, handId) == PXC_STATUS_NO_ERROR) {
@@ -498,27 +561,70 @@ void ofApp::updateCamera() { //Live‚É•K—v‚È‚à‚Ì‚Ì‚ÝB‘¼‚É•K—v‚È‚à‚Ì‚Í‚Ù‚©‚Å‚â‚ë‚
 			projection->MapDepthToColor(1, &depthPoint, &colorPoint);
 			rightHandAt.set(colorPoint.x, colorPoint.y);
 
+			hand->QueryTrackedJoint((PXCHandData::JointType)5, jointData);
+			colorPoint = { 0 };
+			depthPoint = jointData.positionImage;
+			depthPoint.z = jointData.positionWorld.z * 1000;
+			projection->MapDepthToColor(1, &depthPoint, &colorPoint);
+			rightPointerThumbAt.set(colorPoint.x, colorPoint.y);
+
 			hand->QueryTrackedJoint((PXCHandData::JointType)9, jointData);
 			colorPoint = { 0 };
 			depthPoint = jointData.positionImage;
 			depthPoint.z = jointData.positionWorld.z * 1000;
 			projection->MapDepthToColor(1, &depthPoint, &colorPoint);
-			rightPointerAt.set(colorPoint.x, colorPoint.y);
+			rightPointerIndexAt.set(colorPoint.x, colorPoint.y);
 
-			if (rightHandAt.x != -1.0f && rightHandAt.y != -1.0f && rightPointerAt.x != -1.0f && rightPointerAt.y != -1.0f) {
+			hand->QueryTrackedJoint((PXCHandData::JointType)13, jointData);
+			colorPoint = { 0 };
+			depthPoint = jointData.positionImage;
+			depthPoint.z = jointData.positionWorld.z * 1000;
+			projection->MapDepthToColor(1, &depthPoint, &colorPoint);
+			rightPointerMiddleAt.set(colorPoint.x, colorPoint.y);
+
+			hand->QueryTrackedJoint((PXCHandData::JointType)17, jointData);
+			colorPoint = { 0 };
+			depthPoint = jointData.positionImage;
+			depthPoint.z = jointData.positionWorld.z * 1000;
+			projection->MapDepthToColor(1, &depthPoint, &colorPoint);
+			rightPointerRingAt.set(colorPoint.x, colorPoint.y);
+
+			hand->QueryTrackedJoint((PXCHandData::JointType)21, jointData);
+			colorPoint = { 0 };
+			depthPoint = jointData.positionImage;
+			depthPoint.z = jointData.positionWorld.z * 1000;
+			projection->MapDepthToColor(1, &depthPoint, &colorPoint);
+			rightPointerPinkyAt.set(colorPoint.x, colorPoint.y);
+
+			if (rightHandAt.x != -1.0f && rightHandAt.y != -1.0f && rightPointerThumbAt.x != -1.0f && rightPointerThumbAt.y != -1.0f && rightPointerIndexAt.x != -1.0f && rightPointerIndexAt.y != -1.0f && rightPointerMiddleAt.x != -1.0f && rightPointerMiddleAt.y != -1.0f && rightPointerRingAt.x != -1.0f && rightPointerRingAt.y != -1.0f && rightPointerPinkyAt.x != -1.0f && rightPointerPinkyAt.y != -1.0f) {
 				rightHandFound = true;
 				rightPointerFound = true;
+				rightPointerThumbFound = true;
+				rightPointerIndexFound = true;
+				rightPointerMiddleFound = true;
+				rightPointerRingFound = true;
+				rightPointerPinkyFound = true;
 				printf("right, %f\n", rightHandAt.x);
 			}
 			else
 			{
 				rightHandFound = false;
 				rightPointerFound = false;
+				rightPointerThumbFound = false;
+				rightPointerIndexFound = false;
+				rightPointerMiddleFound = false;
+				rightPointerRingFound = false;
+				rightPointerPinkyFound = false;
 			}
 		}
 		else {
 			rightHandFound = false;
 			rightPointerFound = false;
+			rightPointerThumbFound = false;
+			rightPointerIndexFound = false;
+			rightPointerMiddleFound = false;
+			rightPointerRingFound = false;
+			rightPointerPinkyFound = false;
 		}
 
 		//FACE
@@ -563,15 +669,16 @@ void ofApp::draw() {
 	gui.begin();
 	texture.draw(camViewport);
 
-	colorpicker0.draw();
 	ofDrawBitmapString(ofToString((int)ofGetFrameRate()), 10, 20);
 
-	fbo_back.draw(0, 0);
 
 	switch (VC_State) {
 
 	case ENTRY:
 		drawPoints();
+
+		drawQ();
+
 		ImGui::SetNextWindowSize(ofVec2f(500, 200), ImGuiSetCond_Always); //GUI‚ÌƒJƒ‰ƒ€ƒTƒCƒY
 		ImGui::SetNextWindowPos(ofVec2f(1380, 50), ImGuiSetCond_Always);
 		ImGui::Begin("Start Menu", 0, window_flags);
@@ -670,7 +777,6 @@ void ofApp::draw() {
 	case EDIT:
 		//drawPoints();
 		if (Pause == false) frameNum++;
-
 		ImGui::SetNextWindowSize(ofVec2f(500, 200), ImGuiSetCond_Always);
 		ImGui::SetNextWindowPos(ofVec2f(1380, 50), ImGuiSetCond_Always);
 		ImGui::Begin("Playback Manager", 0, window_flags);
@@ -706,7 +812,6 @@ void ofApp::draw() {
 			ofs << (int)rightHandImageflag << ',' << isrightAssign2Tip << ',' << rightHandImageOffsetX << ',' << rightHandImageOffsetY << ',' << rightHandImageSize << ',' << endl;
 			ofs << (int)headImageflag << ',' << flocation << ',' << faceImageOffsetX << ',' << faceImageOffsetY << ',' << headImageSize << ',' << endl;
 			ofs << (int)backImageflag << ",," << backImageOffsetX << ',' << backImageOffsetY << ',' << backImageSize << ',' << endl;
-
 		}
 
 		if (ImGui::Button("-3s"))
@@ -728,7 +833,6 @@ void ofApp::draw() {
 		{
 			framePlayback += 90;
 		}
-
 		ImGui::Text("Playback Frame Count : %d", framePlayback);
 		ImGui::Text("Playback Time Duration : %d", framePlayback / 30);
 		ImGui::Checkbox("PointsEnable", &isColorPointsEnable);
@@ -779,10 +883,11 @@ void ofApp::drawPicCtrl() {
 			leftHandImageOffsetX = 0;
 			leftHandImageOffsetY = 0;
 		}
-		//ImGui::Checkbox("at Tip", &isleftAssign2Tip);
+		ImGui::Checkbox("draw", &leftHandImageflag);
+
 		ImGui::RadioButton("at Palm", &isleftAssign2Tip, 0); ImGui::SameLine();
 		ImGui::RadioButton("at Tip", &isleftAssign2Tip, 1);
-		ImGui::SliderInt("Size", &leftHandImageSize, 10, 500, nullptr);
+		ImGui::SliderInt("Size", &leftHandImageSize, 10, 1000, nullptr);
 		//‰º‚Ì‚à‚Ì‚Íƒhƒ‰ƒbƒNƒAƒ“ƒhƒhƒƒbƒv‚É‚ÄC³‚Å‚«‚é‚æ‚¤‚É‚·‚é
 		ImGui::SliderInt("X offset", &leftHandImageOffsetX, -640, 640, nullptr);
 		ImGui::SliderInt("Y offset", &leftHandImageOffsetY, -480, 480, nullptr);
@@ -811,7 +916,7 @@ void ofApp::drawPicCtrl() {
 		//ImGui::Checkbox("at Tip", &isrightAssign2Tip);
 		ImGui::RadioButton("at Palm", &isrightAssign2Tip, 0); ImGui::SameLine();
 		ImGui::RadioButton("at Tip", &isrightAssign2Tip, 1);
-		ImGui::SliderInt("Size", &rightHandImageSize, 10, 500, nullptr);
+		ImGui::SliderInt("Size", &rightHandImageSize, 10, 1000, nullptr);
 
 		//ƒhƒ‰ƒbƒNƒAƒ“ƒhƒhƒƒbƒv‚Å‚Â‚­‚è‚½‚¢
 		ImGui::SliderInt("X offset", &rightHandImageOffsetX, -640, 640, nullptr);
@@ -840,10 +945,14 @@ void ofApp::drawPicCtrl() {
 			faceImageOffsetY = 0;
 		}
 
+		//ImGui::Checkbox("draw", &headImageflag);
+		//fbo_face.draw(mouseAt.x * 2 + camViewport.x - 400, mouseAt.y * 2 + camViewport.y - 500);
+
 		ImGui::RadioButton("mouse", &flocation, 0); ImGui::SameLine();
 		ImGui::RadioButton("lefteye", &flocation, 1); ImGui::SameLine();
 		ImGui::RadioButton("righteye", &flocation, 2);
-		ImGui::SliderInt("Size", &headImageSize, 10, 500, nullptr);
+		ImGui::SliderInt("Size", &headImageSize, 10, 1000, nullptr);
+		//mousedragg
 		ImGui::SliderInt("X offset", &faceImageOffsetX, -640, 640, nullptr);
 		ImGui::SliderInt("Y offset", &faceImageOffsetY, -480, 480, nullptr);
 		break;
@@ -868,44 +977,184 @@ void ofApp::drawPicCtrl() {
 			backImageOffsetY = 0;
 		}
 		ImGui::NewLine();
-		ImGui::SliderInt("Size", &backImageSize, 10, 500, nullptr);
+		ImGui::SliderInt("Size", &backImageSize, 10, 1000, nullptr);
 		ImGui::SliderInt("X offset", &backImageOffsetX, -640, 640, nullptr);
 		ImGui::SliderInt("Y offset", &backImageOffsetY, -480, 480, nullptr);
 		backImageAt.set(backImageOffsetX, backImageOffsetY);
 	}
+
+
 	ImGui::End();
 }
 
 void ofApp::drawPoints() {
 	ofPushStyle();
-	if (leftHandFound) {
-		ofSetColor(255, 0, 0);
-		ofFill();
-		ofRect(leftHandAt.x * 2 + camViewport.x, leftHandAt.y * 2 + camViewport.y, 30, 30);
-		ofSetColor(255, 100, 100);
-		ofFill();
-		ofRect(leftPointerAt.x * 2 + camViewport.x, leftPointerAt.y * 2 + camViewport.y, 10, 10);
-		fbo_left.draw(leftHandAt.x * 2 + camViewport.x - 200, leftHandAt.y * 2 + camViewport.y - 300);
+	ImGui::SetNextWindowSize(ofVec2f(500, 100), ImGuiSetCond_Always);
+	ImGui::SetNextWindowPos(ofVec2f(1380, 280), ImGuiSetCond_Always);
+	ImGui::Begin("size Control", &startMenuFlag);
+	//ImGui::RadioButton("")
+	static int e = 0;
+	ImGui::RadioButton("box", &e, 0); ImGui::SameLine();
+	ImGui::RadioButton("shere", &e, 1); ImGui::SameLine();
+	ImGui::RadioButton("line", &e, 2); ImGui::SameLine();
+	ImGui::RadioButton("point", &e, 3); ImGui::SameLine();
+	ImGui::RadioButton("none", &e, 4);
+	ImGui::NewLine();
+
+	switch (e) {
+	case 0:
+		if (rightHandFound && !leftHandFound)
+		{
+			box.setPosition(ofGetWidth() / 2, ofGetHeight() / 2, 0);
+			box.setPosition(rightHandAt.x * 2 + camViewport.x, rightHandAt.y * 2 + camViewport.y, rightHandAt.z);
+			box.setScale(sqrt((rightHandAt.x - rightPointerIndexAt.x)*(rightHandAt.x - rightPointerIndexAt.x) + (rightHandAt.y - rightPointerIndexAt.y)* (rightHandAt.y - rightPointerIndexAt.y)) / 50);
+			box.drawWireframe();
+			box.setScale(10.f);
+		}
+		if (rightHandFound && leftHandFound) {
+			box.setPosition(ofGetWidth() / 2, ofGetHeight() / 2, 0);
+			box.setPosition(leftHandAt.x + camViewport.x + rightHandAt.x, leftHandAt.y + rightHandAt.y + camViewport.y, leftHandAt.z + rightHandAt.z);
+			box.setScale(sqrt((leftHandAt.x - rightHandAt.x)*(leftHandAt.x - rightHandAt.x) + (leftHandAt.y - rightHandAt.y)*(leftHandAt.y - rightHandAt.y)) / 50);
+			box.drawWireframe();
+			box.setScale(10.f);
+		}
+		break;
+
+	case 1:
+		if (rightHandFound && !leftHandFound)
+		{
+			sphere.setPosition(ofGetWidth() / 2, ofGetHeight() / 2, 0);
+			sphere.setPosition(rightHandAt.x * 2 + camViewport.x, rightHandAt.y * 2 + camViewport.y, rightHandAt.z);
+			sphere.setRadius(sqrt((rightHandAt.x - rightPointerIndexAt.x)*(rightHandAt.x - rightPointerIndexAt.x) + (rightHandAt.y - rightPointerIndexAt.y)* (rightHandAt.y - rightPointerIndexAt.y)) / 10);
+			sphere.drawWireframe();
+			sphere.setScale(10.f);
+		}
+		if (rightHandFound && leftHandFound) {
+			sphere.setPosition(ofGetWidth() / 2, ofGetHeight() / 2, 0);
+			sphere.setPosition(leftHandAt.x + camViewport.x + rightHandAt.x, leftHandAt.y + rightHandAt.y + camViewport.y, leftHandAt.z + rightHandAt.z);
+			sphere.setRadius(sqrt((leftHandAt.x - rightHandAt.x)*(leftHandAt.x - rightHandAt.x) + (leftHandAt.y - rightHandAt.y)*(leftHandAt.y - rightHandAt.y)) / 10);
+			sphere.drawWireframe();
+			sphere.setScale(10.f);
+		}
+		break;
+
+	case 2:
+		if (leftPointerThumbFound && rightPointerThumbFound) {
+			ofDrawLine(leftPointerThumbAt.x * 2 + camViewport.x, leftPointerThumbAt.y * 2 + camViewport.y, rightPointerThumbAt.x * 2 + camViewport.x, rightPointerThumbAt.y * 2 + camViewport.y);
+
+		}
+		if (leftPointerIndexFound && rightPointerIndexFound) {
+			ofDrawLine(leftPointerIndexAt.x * 2 + camViewport.x, leftPointerIndexAt.y * 2 + camViewport.y, rightPointerIndexAt.x * 2 + camViewport.x, rightPointerIndexAt.y * 2 + camViewport.y);
+
+		}
+		if (leftPointerMiddleFound && rightPointerMiddleFound) {
+			ofDrawLine(leftPointerMiddleAt.x * 2 + camViewport.x, leftPointerMiddleAt.y * 2 + camViewport.y, rightPointerMiddleAt.x * 2 + camViewport.x, rightPointerMiddleAt.y * 2 + camViewport.y);
+
+		}
+		if (leftPointerRingFound && rightPointerRingFound) {
+			ofDrawLine(leftPointerRingAt.x * 2 + camViewport.x, leftPointerRingAt.y * 2 + camViewport.y, rightPointerRingAt.x * 2 + camViewport.x, rightPointerRingAt.y * 2 + camViewport.y);
+
+		}
+		if (leftPointerPinkyFound && rightPointerPinkyFound) {
+			ofDrawLine(leftPointerPinkyAt.x * 2 + camViewport.x, leftPointerPinkyAt.y * 2 + camViewport.y, rightPointerPinkyAt.x * 2 + camViewport.x, rightPointerPinkyAt.y * 2 + camViewport.y);
+
+		}
+		break;
+
+	case 3:
+		if (leftHandFound) {
+			ofFill();
+			ofRect(leftHandAt.x * 2 + camViewport.x, leftHandAt.y * 2 + camViewport.y, 30, 30);
+		}
+		if (rightHandFound) {
+			ofFill();
+			ofRect(rightHandAt.x * 2 + camViewport.x, rightHandAt.y * 2 + camViewport.y, 30, 30);
+		}
+		if (leftPointerThumbFound) {
+			ofFill();
+			ofRect(leftPointerThumbAt.x * 2 + camViewport.x, leftPointerThumbAt.y * 2 + camViewport.y, 10, 10);
+		}
+
+		if (rightPointerThumbFound) {
+			ofFill();
+			ofRect(rightPointerThumbAt.x * 2 + camViewport.x, rightPointerThumbAt.y * 2 + camViewport.y, 10, 10);
+		}
+
+
+		if (leftPointerIndexFound) {
+			ofFill();
+			ofRect(leftPointerIndexAt.x * 2 + camViewport.x, leftPointerIndexAt.y * 2 + camViewport.y, 10, 10);
+
+		}
+
+		if (rightPointerIndexFound) {
+			ofFill();
+			ofRect(rightPointerIndexAt.x * 2 + camViewport.x, rightPointerIndexAt.y * 2 + camViewport.y, 10, 10);
+
+		}
+
+		if (leftPointerMiddleFound) {
+			ofFill();
+			ofRect(leftPointerMiddleAt.x * 2 + camViewport.x, leftPointerMiddleAt.y * 2 + camViewport.y, 10, 10);
+
+		}
+		if (rightPointerMiddleFound) {
+			ofFill();
+			ofRect(rightPointerMiddleAt.x * 2 + camViewport.x, rightPointerMiddleAt.y * 2 + camViewport.y, 10, 10);
+
+		}
+		if (leftPointerRingFound) {
+			ofFill();
+			ofRect(leftPointerRingAt.x * 2 + camViewport.x, leftPointerRingAt.y * 2 + camViewport.y, 10, 10);
+		}
+		if (rightPointerRingFound) {
+			ofFill();
+			ofRect(rightPointerRingAt.x * 2 + camViewport.x, rightPointerRingAt.y * 2 + camViewport.y, 10, 10);
+		}
+		if (leftPointerPinkyFound) {
+			ofFill();
+			ofRect(leftPointerPinkyAt.x * 2 + camViewport.x, leftPointerPinkyAt.y * 2 + camViewport.y, 10, 10);
+		}
+		if (rightPointerPinkyFound) {
+			ofFill();
+			ofRect(rightPointerPinkyAt.x * 2 + camViewport.x, rightPointerPinkyAt.y * 2 + camViewport.y, 10, 10);
+		}
+
+		if (faceFound) {
+			ofFill();
+			ofRect(rightEyeAt.x * 2 + camViewport.x, rightEyeAt.y * 2 + camViewport.y, 10, 10);
+			ofRect(leftEyeAt.x * 2 + camViewport.x, leftEyeAt.y * 2 + camViewport.y, 10, 10);
+			ofRect(mouseAt.x * 2 + camViewport.x, mouseAt.y * 2 + camViewport.y, 10, 10);
+			//fbo_face.draw(mouseAt.x * 2 + camViewport.x - 400, mouseAt.y * 2 + camViewport.y - 500);
+		}
+		break;
+	case 4:
+
+		break;
 	}
 
-	if (rightHandFound) {
-		ofSetColor(0, 0, 255);
-		ofFill();
-		ofRect(rightHandAt.x * 2 + camViewport.x, rightHandAt.y * 2 + camViewport.y, 30, 30);
-		ofSetColor(100, 100, 255);
-		ofFill();
-		ofRect(rightPointerAt.x * 2 + camViewport.x, rightPointerAt.y * 2 + camViewport.y, 10, 10);
-		fbo_right.draw(rightHandAt.x * 2 + camViewport.x - 200, rightHandAt.y * 2 + camViewport.y - 300);
-	}
-	if (faceFound) {
-		ofSetColor(0, 255, 0);
-		ofFill();
-		ofRect(rightEyeAt.x * 2 + camViewport.x, rightEyeAt.y * 2 + camViewport.y, 10, 10);
-		ofRect(leftEyeAt.x * 2 + camViewport.x, leftEyeAt.y * 2 + camViewport.y, 10, 10);
-		ofRect(mouseAt.x * 2 + camViewport.x, mouseAt.y * 2 + camViewport.y, 10, 10);
+	ImGui::End();
+	ofPopStyle();
+}
+
+void ofApp::drawQ() {
+
+	ofPushStyle();
+	ImGui::SetNextWindowSize(ofVec2f(500, 100), ImGuiSetCond_Always);
+	ImGui::SetNextWindowPos(ofVec2f(1380, 480), ImGuiSetCond_Always);
+	ImGui::Begin("draw", &startMenuFlag);
+
+	static int o = 0;
+	ImGui::Checkbox("draw", &isDrawEnable);
+	if (isDrawEnable) {
+		colorpicker0.draw();
+		fbo_back.draw(0, 0);
+		fbo_left.draw(leftHandAt.x * 2 + camViewport.x - 400, leftHandAt.y * 2 + camViewport.y - 500);
+		fbo_right.draw(rightHandAt.x * 2 + camViewport.x - 400, rightHandAt.y * 2 + camViewport.y - 500);
 		fbo_face.draw(mouseAt.x * 2 + camViewport.x - 400, mouseAt.y * 2 + camViewport.y - 500);
 	}
-
+	ImGui::NewLine();
+	ImGui::End();
 	ofPopStyle();
 }
 
@@ -954,13 +1203,22 @@ void ofApp::drawImages() {
 		}
 	}
 }
-//--------------------------------------------------------------
+
 void ofApp::keyPressed(int key) {
 	Pause = !Pause;
 	//senseManager->QueryCaptureManager()->SetPause(Pause);
 
+	if (key == 'a') {
+		image_back.save("my back_" + ofGetTimestampString() + ".png", OF_IMAGE_QUALITY_BEST);
+	}
 	if (key == 's') {
-		image_back.save("my file_" + ofGetTimestampString() + ".png", OF_IMAGE_QUALITY_BEST);
+		image_back.save("my right_" + ofGetTimestampString() + ".png", OF_IMAGE_QUALITY_BEST);
+	}
+	if (key == 'd') {
+		image_back.save("my left_" + ofGetTimestampString() + ".png", OF_IMAGE_QUALITY_BEST);
+	}
+	if (key == 'g') {
+		image_back.save("my face_" + ofGetTimestampString() + ".png", OF_IMAGE_QUALITY_BEST);
 	}
 
 	switch (key) {
@@ -1022,11 +1280,11 @@ void ofApp::mouseMoved(int x, int y) {
 	mouseLoc_back.x = x;
 	mouseLoc_back.y = y;
 
-	mouseLoc_right.x = x - (rightHandAt.x * 2 + camViewport.x) - 200;
-	mouseLoc_right.y = y - (rightHandAt.y * 2 + camViewport.y) - 300;
+	mouseLoc_right.x = x - (rightHandAt.x * 2 + camViewport.x) - 400;
+	mouseLoc_right.y = y - (rightHandAt.y * 2 + camViewport.y) - 500;
 
-	mouseLoc_left.x = x - (leftHandAt.x * 2 + camViewport.x - 200);
-	mouseLoc_left.y = y - (leftHandAt.y * 2 + camViewport.y - 300);
+	mouseLoc_left.x = x - (leftHandAt.x * 2 + camViewport.x - 400);
+	mouseLoc_left.y = y - (leftHandAt.y * 2 + camViewport.y - 500);
 
 	mouseLoc_face.x = x - (mouseAt.x * 2 + camViewport.x - 400);
 	mouseLoc_face.y = y - (mouseAt.y * 2 + camViewport.y - 500);
@@ -1043,10 +1301,10 @@ void ofApp::mouseDragged(int x, int y, int button) {
 	mouseLoc_back.set(x, y);
 
 	lastmouseLoc_right = mouseLoc_right;
-	mouseLoc_right.set(x - (rightHandAt.x * 2 + camViewport.x - 200), y - (rightHandAt.y * 2 + camViewport.y - 300));
+	mouseLoc_right.set(x - (rightHandAt.x * 2 + camViewport.x - 400), y - (rightHandAt.y * 2 + camViewport.y - 500));
 
 	lastmouseLoc_left = mouseLoc_left;
-	mouseLoc_left.set(x - (leftHandAt.x * 2 + camViewport.x - 200), y - (leftHandAt.y * 2 + camViewport.y - 300));
+	mouseLoc_left.set(x - (leftHandAt.x * 2 + camViewport.x - 400), y - (leftHandAt.y * 2 + camViewport.y - 500));
 
 	lastmouseLoc_face = mouseLoc_face;
 	mouseLoc_face.set(x - (mouseAt.x * 2 + camViewport.x - 400), y - (mouseAt.y * 2 + camViewport.y - 500));

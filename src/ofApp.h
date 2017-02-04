@@ -112,6 +112,8 @@ public:
 	void drawPoints();
 	void drawImages();
 	void drawPicCtrl();
+	void drawQ();
+
 
 	ofFbo fbo_back;
 	ofFbo fbo_right;
@@ -142,7 +144,6 @@ public:
 	ofImage image_face;
 	ofPixels pixels_face;
 
-
 	bool drawing_back;
 	bool drawing_right;
 	bool drawing_left;
@@ -150,6 +151,11 @@ public:
 
 	ofxColorPicker colorpicker0;
 	ofMesh meshGradient;
+
+	ofSpherePrimitive sphere;
+	ofBoxPrimitive box;
+	ofLight pointLight, pointLight2, pointLight3;
+	ofMaterial material;
 
 	ofxImGui::Gui gui;
 };
